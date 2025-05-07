@@ -28,11 +28,12 @@ import time
 # Define ROC AUC scorer
 roc_auc = make_scorer(roc_auc_score)
 
-def run_train(public_dir, model_dir):
+def run_train(public_dir, model_dir, n_cv_folds): # Added n_cv_folds parameter
     """
     Loads training data, performs Grid Search across different models
     and parameters with preprocessing, and saves the best found pipeline.
     """
+    # Ensure model directory exists
     os.makedirs(model_dir, exist_ok=True)
 
     print("Loading training data...")
@@ -41,6 +42,7 @@ def run_train(public_dir, model_dir):
         df = pd.read_json(train_path, lines=True)
     except FileNotFoundError:
         print(f"Error: Training data not found at {train_path}")
+        print(f"Please ensure '{train_path}' exists or specify the correct --public_dir.")
         sys.exit(1)
     except Exception as e:
          print(f"Error loading training data: {e}")
@@ -236,14 +238,15 @@ def run_train(public_dir, model_dir):
     ]
 
     # --- Set up Grid Search ---
-    # cv=5 means 5-fold cross-validation
+    # cv=n_cv_folds uses the specified number of cross-validation folds
     # scoring='roc_auc' uses the ROC AUC score to evaluate models
     # n_jobs=-1 uses all available CPU cores (set to a smaller number if needed, e.g., 4)
     print("Starting Grid Search with expanded parameter grid...")
+    print(f"Using {n_cv_folds}-fold cross-validation.")
     # Calculate total number of candidates (this might be large!)
     total_candidates = 0
     for d in param_grid:
-        # For each dict, get the list of classifiers (the first item)
+        # For each dict, get the list of classifiers (the first item, usually the model instance)
         classifiers_list = list(d.values())[0]
         # Count other parameter combinations
         other_params = {k: v for k, v in d.items() if k != 'classifier'}
@@ -251,7 +254,7 @@ def run_train(public_dir, model_dir):
         total_candidates += len(classifiers_list) * num_other_combinations
 
     print(f"Total number of candidate configurations: {total_candidates}")
-    grid_search = GridSearchCV(pipeline, param_grid, cv=5, scoring=roc_auc, n_jobs=-1, verbose=3) # Increased verbose for more output
+    grid_search = GridSearchCV(pipeline, param_grid, cv=n_cv_folds, scoring=roc_auc, n_jobs=-1, verbose=3) # Use n_cv_folds
 
     start_time = time.time()
     # Fit on the entire training data (GridSearchCV handles internal splitting for CV)
@@ -294,6 +297,7 @@ def run_predict(model_dir, test_input_dir, output_path):
         print("Pipeline loaded successfully.")
     except FileNotFoundError:
         print(f"Error: Pipeline file not found at {model_path}")
+        print(f"Please ensure '{model_path}' exists or specify the correct --model_dir.")
         sys.exit(1)
     except Exception as e:
          print(f"Error loading pipeline: {e}")
@@ -307,6 +311,7 @@ def run_predict(model_dir, test_input_dir, output_path):
         print(f"Test data loaded. Shape: {df_test.shape}")
     except FileNotFoundError:
         print(f"Error: Test data not found at {test_path}")
+        print(f"Please ensure '{test_path}' exists or specify the correct --test_input_dir.")
         sys.exit(1)
     except Exception as e:
          print(f"Error loading test data: {e}")
@@ -345,42 +350,59 @@ def main():
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
     # Train command
-    parser_train = subparsers.add_parser('train', help='Train the model using Grid Search')
-    parser_train.add_argument('--public_dir', type=str, required=True, help='Directory containing the training data (e.g., public/data). Expects data at public_dir/train_data/train.json')
-    parser_train.add_argument('--model_dir', type=str, required=True, help='Directory to save the trained model pipeline')
+    parser_train = subparsers.add_parser('train', help='Tune models using Grid Search, create best voting ensemble, save preprocessor and model')
+    # --- Changed defaults to relative subdirectories ---
+    parser_train.add_argument('--public_dir', type=str, default='./data', help='Directory containing train_data/train.json (default: ./data)')
+    parser_train.add_argument('--model_dir', type=str, default ='./models', help='Directory to save the trained model pipeline (default: ./models)')
+    parser_train.add_argument('--n_cv_folds', type=int, default=5, help='Number of CV folds for Grid Search (default: 5)')
 
     # Predict command
-    parser_predict = subparsers.add_parser('predict', help='Make predictions using a trained model')
-    parser_predict.add_argument('--model_dir', type=str, required=True, help='Directory containing the trained model pipeline')
-    parser_predict.add_argument('--test_input_dir', type=str, required=True, help='Directory containing the test input data. Expects data at test_input_dir/test.json')
-    # --- CORRECTED LINE BELOW ---
-    parser_predict.add_argument('--output_path', type=str, required=True, help='File path to save the predictions (JSON format)')
+    parser_predict = subparsers.add_parser('predict', help='Make predictions using saved pipeline')
+    # --- Changed defaults to relative subdirectories ---
+    parser_predict.add_argument('--model_dir', type=str, default='./models', help='Directory containing the trained model pipeline (default: ./models)')
+    parser_predict.add_argument('--test_input_dir', type=str, default='./data/test', help='Directory containing test.json (default: ./data/test)') # Assuming test data is in a subdirectory
+    parser_predict.add_argument('--output_path', type=str, default='./output/predict.json', help='File path for saving predictions (default: ./output/predict.json)')
 
     args = parser.parse_args()
 
     # --- Path Validation and Directory Creation (after parsing args) ---
     if args.command == 'train':
-        # Check if model_dir parent exists or can be created
-        if args.model_dir: # Check if argument was provided (should be true due to required=True, but defensive)
-             model_dir_parent = os.path.dirname(args.model_dir)
-             if model_dir_parent and not os.path.exists(model_dir_parent):
-                  try:
-                      os.makedirs(model_dir_parent, exist_ok=True)
-                      print(f"Created directory: {model_dir_parent}")
-                  except OSError as e:
-                      print(f"Error creating model directory parent {model_dir_parent}: {e}")
-                      sys.exit(1)
+        # Ensure model_dir parent exists if it's a nested path
+        model_dir_parent = os.path.dirname(args.model_dir)
+        if model_dir_parent and not os.path.exists(model_dir_parent):
+            try:
+                os.makedirs(model_dir_parent, exist_ok=True)
+                print(f"Created directory: {model_dir_parent}")
+            except OSError as e:
+                print(f"Error creating model directory parent {model_dir_parent}: {e}")
+                sys.exit(1)
 
-        run_train(args.public_dir, args.model_dir)
+        # Pass n_cv_folds to run_train
+        run_train(args.public_dir, args.model_dir, args.n_cv_folds)
 
     elif args.command == 'predict':
          # Check if test_input_dir exists
          if not os.path.exists(args.test_input_dir):
               print(f"Error: Test input directory not found: {args.test_input_dir}")
+              print(f"Please ensure the directory '{args.test_input_dir}' exists or specify the correct --test_input_dir.")
               sys.exit(1)
+
+         # Check if model_dir exists (where the pipeline is loaded from)
+         if not os.path.exists(args.model_dir):
+             print(f"Error: Model directory not found: {args.model_dir}")
+             print(f"Please ensure the directory '{args.model_dir}' exists or specify the correct --model_dir.")
+             sys.exit(1)
+         # Also check if the specific model file exists
+         model_file_path = os.path.join(args.model_dir, 'best_pipeline.joblib')
+         if not os.path.exists(model_file_path):
+             print(f"Error: Model file not found: {model_file_path}")
+             print(f"Please ensure the file '{model_file_path}' exists inside the model directory.")
+             sys.exit(1)
+
 
          # Check if output directory exists and create it if necessary
          output_dir = os.path.dirname(args.output_path)
+         # Only try to create if output_path has a directory component
          if output_dir and not os.path.exists(output_dir):
              try:
                  os.makedirs(output_dir, exist_ok=True)
@@ -394,7 +416,6 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-# Removed the unnecessary add_path_argument helper function definition
 
 if __name__ == "__main__":
     main()
