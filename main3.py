@@ -124,12 +124,15 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
     elif model_name == 'catboost':
         base_model = CatBoostClassifier(verbose=0, random_state=42)
         param_grid = {
-            'iterations': [100, 200],
-            'depth': [4, 6, 8],
-            'learning_rate': [0.01, 0.1, 0.2],
-            'l2_leaf_reg': [1, 3, 5],
-            'border_count': [32, 64],
-            'scale_pos_weight': [1, 2]
+            'iterations': [100, 200, 300, 500],
+            'depth': [4, 6, 8, 10],
+            'learning_rate': [0.01, 0.05, 0.1, 0.2, 0.3],
+            'l2_leaf_reg': [1, 3, 5, 7, 9],
+            'border_count': [32, 64, 128],
+            'scale_pos_weight': [1, 2, 5, 10],
+            'bagging_temperature': [0, 0.5, 1, 2],
+            'random_strength': [1, 5, 10],
+            'rsm': [0.8, 1.0]  # Random subspace method (column sampling)
         }
     else:
         raise ValueError(f"Unsupported model: {model_name}")
