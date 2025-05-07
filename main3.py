@@ -121,7 +121,7 @@ def run_train(public_dir, model_dir):
     }
 
     base_model = DecisionTreeClassifier(random_state=42)
-    grid_search = GridSearchCV(base_model, param_grid, cv=5, scoring='f1_weighted', n_jobs=-1)
+    grid_search = GridSearchCV(base_model, param_grid, cv=5, scoring='f1', n_jobs=-1)
     grid_search.fit(X_processed, y)
 
     best_model = grid_search.best_estimator_
@@ -161,6 +161,7 @@ def main():
     parser_train = subparsers.add_parser('train', help='Tune models using Grid Search, create best voting ensemble, save preprocessor and model')
     parser_train.add_argument('--public_dir', type=str, default='./', help='Directory containing train_data/train.json')
     parser_train.add_argument('--model_dir', type=str, default ='./', help='Directory to save preprocessor.joblib and trained_voting_model.joblib')
+    #parser_train.add_argument('--model_name', type=str, default='decision_tree', choices=['decision_tree', 'catboost'], help='Model to train: decision_tree or catboost')
 
     # Predict command
     parser_predict = subparsers.add_parser('predict', help='Make predictions using saved preprocessor and voting model')
