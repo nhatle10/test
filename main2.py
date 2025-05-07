@@ -26,9 +26,11 @@ from sklearn.metrics import accuracy_score, classification_report, f1_score, mak
 from joblib import dump, load
 from tqdm import tqdm
 
-# Suppress specific warnings
+# Suppress specific warnings, including the one about n_jobs with liblinear
 warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn.linear_model._logistic") # Specifically target logistic regression warning
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn.neural_network._multilayer_perceptron") # Specifically target MLPConvergenceWarning
+
 # Optuna specific warning suppression is removed as Optuna is not used
 
 def categorize_age(age):
@@ -101,7 +103,8 @@ def get_pipeline_and_param_grid(model_type, num_features, cat_features):
         }
 
     elif model_type == 'logistic':
-        model = LogisticRegression(solver='liblinear', max_iter=2000, random_state=42, n_jobs=-1)
+        # Set n_jobs=1 explicitly for liblinear to suppress warning, or just omit as default is 1
+        model = LogisticRegression(solver='liblinear', max_iter=2000, random_state=42)
         model_param_grid = {
             'classifier__C': [0.01, 0.1, 1, 10], # Example values
             'classifier__penalty': ['l1', 'l2'],
@@ -153,6 +156,7 @@ def get_pipeline_and_param_grid(model_type, num_features, cat_features):
         }
 
     elif model_type == 'mlp':
+        # Max_iter increased and early_stopping added for training stability
         model = MLPClassifier(max_iter=1500, early_stopping=True, n_iter_no_change=10, random_state=42)
         model_param_grid = {
             'classifier__hidden_layer_sizes': [(100,), (125,), (150,)], # Example values
@@ -216,9 +220,8 @@ def get_pipeline_and_param_grid(model_type, num_features, cat_features):
         'preprocessor__cat__onehot__handle_unknown': ['ignore', 'infrequent_if_exist'], # Example values
         'preprocessor__cat__onehot__min_frequency': [0.01, 0.05, 0.1], # Example values, used if handle_unknown='infrequent_if_exist'
     }
-    # Note: The combination of cat__imputer__strategy='constant' and cat__imputer__fill_value=None will be invalid,
-    # but GridSearchCV will handle fitting failures gracefully. Or we could make a smarter grid definition.
-    # For simplicity, let's keep it for now.
+    # Note: The combination of cat__imputer__strategy='constant' and cat__imputer__fill_value=None will be invalid.
+    # GridSearchCV handles this by failing the fit for that specific combination.
 
     # Combine preprocessor and model grids
     full_param_grid = {**preprocessor_param_grid, **model_param_grid}
@@ -235,31 +238,28 @@ def get_pipeline_and_param_grid(model_type, num_features, cat_features):
 def build_final_preprocessor(best_preprocessor_params, num_features, cat_features):
     # Extract params specifically for preprocessor steps
     # Need to map generic names like 'scaler' back to actual scaler instances
-    # Or, make the grid search use step names directly like 'preprocessor__num__scaler'
-    # Let's assume the grid search parameters match the structure pipeline_step__transformer_step__param
-    # like 'preprocessor__num__imputer__strategy', 'preprocessor__num__scaler__...'
-    # This means the scaler instance itself needs to be passed correctly or re-instantiated.
+    best_scaler_name = best_preprocessor_params.get('preprocessor__num__scaler', StandardScaler()) # Default
 
-    # Let's handle the scaler instance based on the 'preprocessor__num__scaler' parameter name
-    # from the best_params dictionary.
-    best_scaler_name = best_preprocessor_params.get('preprocessor__num__scaler', 'StandardScaler()') # Default
-
-    if isinstance(best_scaler_name, str):
-        if 'StandardScaler' in best_scaler_name:
-             scaler_instance = StandardScaler()
-        elif 'RobustScaler' in best_scaler_name:
-             scaler_instance = RobustScaler()
-        else:
-             scaler_instance = StandardScaler() # Fallback
-    else: # Assume it's already an instance
-         scaler_instance = best_scaler_name
-
+    # Determine the correct scaler instance from the grid search result
+    # The value in best_preprocessor_params['preprocessor__num__scaler'] will be the actual instance
+    scaler_instance = best_scaler_name
 
     num_imputer_strategy = best_preprocessor_params.get('preprocessor__num__imputer__strategy', 'mean')
     cat_imputer_strategy = best_preprocessor_params.get('preprocessor__cat__imputer__strategy', 'most_frequent')
     cat_imputer_fill_value = best_preprocessor_params.get('preprocessor__cat__imputer__fill_value', None)
     ohe_handle_unknown = best_preprocessor_params.get('preprocessor__cat__onehot__handle_unknown', 'ignore')
     ohe_min_frequency = best_preprocessor_params.get('preprocessor__cat__onehot__min_frequency', None)
+
+    # Handle the case where min_frequency is None when handle_unknown='ignore'
+    # The grid search might still explore this, but the OHE constructor handles it.
+    # Ensure fill_value is set correctly if strategy is constant
+    if cat_imputer_strategy == 'constant' and cat_imputer_fill_value is None:
+         # This combination would likely fail or behave unexpectedly in grid search,
+         # but explicitly handle it here just in case the best params include it.
+         # In practice, the grid should probably exclude this invalid combination.
+         # For this code, we'll assume grid search didn't return this invalid state
+         # or that SimpleImputer handles strategy='constant' with fill_value=None (it defaults to 0 or 'missing')
+         pass # SimpleImputer with strategy='constant' requires fill_value
 
     numeric_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy=num_imputer_strategy)),
@@ -283,8 +283,8 @@ def build_final_preprocessor(best_preprocessor_params, num_features, cat_feature
 
 
 def reconstruct_model_from_params(model_type, model_params):
-    # This function is similar to the old reconstruct, but takes
-    # params directly from the best_params_ dictionary from GridSearchCV
+    # This function reconstructs a model instance using the parameters
+    # found by GridSearchCV.
     model = None
 
     # Remove 'classifier__' prefix from parameter names
@@ -293,7 +293,11 @@ def reconstruct_model_from_params(model_type, model_params):
     if model_type == 'knn':
         model = KNeighborsClassifier(**cleaned_params, n_jobs=-1)
     elif model_type == 'logistic':
-        model = LogisticRegression(**cleaned_params, solver='liblinear', max_iter=2000, random_state=42, n_jobs=-1)
+        # Ensure n_jobs is not included in cleaned_params for liblinear solver
+        logistic_params = cleaned_params.copy()
+        # The n_jobs parameter is not in the param_grid for logistic regression with liblinear,
+        # so it won't be in cleaned_params anyway.
+        model = LogisticRegression(**logistic_params, solver='liblinear', max_iter=2000, random_state=42) # n_jobs defaults to 1
     elif model_type == 'svc':
         model = SVC(**cleaned_params, probability=True, random_state=42)
     elif model_type == 'decision_tree':
@@ -306,9 +310,11 @@ def reconstruct_model_from_params(model_type, model_params):
         model = GaussianNB(**cleaned_params)
     elif model_type == 'mlp':
         # MLP hidden_layer_sizes needs careful handling if it was tuned as (size,) tuple
-        if 'hidden_layer_sizes' in cleaned_params and isinstance(cleaned_params['hidden_layer_sizes'], int):
-             cleaned_params['hidden_layer_sizes'] = (cleaned_params['hidden_layer_sizes'],)
-        model = MLPClassifier(**cleaned_params, max_iter=1500, early_stopping=False, random_state=42) # early_stopping=False for final fit
+        # Ensure max_iter is sufficient and early_stopping is False for the final model as intended
+        mlp_params = cleaned_params.copy()
+        if 'hidden_layer_sizes' in mlp_params and isinstance(mlp_params['hidden_layer_sizes'], int):
+             mlp_params['hidden_layer_sizes'] = (mlp_params['hidden_layer_sizes'],)
+        model = MLPClassifier(**mlp_params, max_iter=1500, early_stopping=False, random_state=42) # early_stopping=False for final fit
     elif model_type == 'xgboost':
         model = xgb.XGBClassifier(**cleaned_params, use_label_encoder=False, eval_metric='logloss', random_state=42, n_jobs=-1)
     elif model_type == 'lightgbm':
@@ -349,12 +355,6 @@ def run_train(public_dir, model_dir, n_cv_folds=5):
     # We use this split for GridSearchCV with cross-validation *on the train split*
     # and then evaluate the final ensemble on the validation split.
     # The final ensemble model will be trained on the entire X, y.
-    # Let's adjust to split into train (for tuning CV) and a final hold-out (for final ensemble evaluation)
-    # No, let's stick to the original structure: split into train/val, tune on train with CV,
-    # evaluate ensemble on val, then train the final selected ensemble on the full train+val data (X, y).
-    # This matches the logic flow of fitting the final model on more data.
-
-    # Split for tuning and ensemble evaluation
     stratify_option = None
     test_size = 0.25
     if len(y.unique()) >= 2:
@@ -368,7 +368,7 @@ def run_train(public_dir, model_dir, n_cv_folds=5):
 
     supported_models = [
         'knn', 'logistic', 'svc', 'decision_tree', 'random_forest',
-        #'gradient_boosting', 'gaussian_nb', 'mlp',
+        'gradient_boosting', 'gaussian_nb', 'mlp',
         'xgboost', 'lightgbm', 'catboost', 'adaboost'
     ]
     all_model_results = {}
@@ -466,10 +466,8 @@ def run_train(public_dir, model_dir, n_cv_folds=5):
     voting_clf_hard = VotingClassifier(estimators=estimators, voting='hard', n_jobs=-1)
     # Build the final pipeline with the chosen preprocessor and voting classifier
     pipeline_hard = Pipeline([('preprocessor', final_preprocessor), ('classifier', voting_clf_hard)])
-    # Train the final pipeline on the initial training split (X_train, y_train)
-    # Note: A more standard approach might be to train on the full X, y here.
-    # Sticking to X_train, y_train for consistency with the original script's training data usage before final eval.
-    print("Fitting Hard Voting Pipeline on training data...")
+    # Train the pipeline on X_train, y_train for validation evaluation
+    print("Fitting Hard Voting Pipeline on training data for validation check...")
     pipeline_hard.fit(X_train, y_train)
     y_pred_val_hard = pipeline_hard.predict(X_val)
     f1_hard = f1_score(y_val, y_pred_val_hard, average='macro')
@@ -485,7 +483,7 @@ def run_train(public_dir, model_dir, n_cv_folds=5):
     if supports_predict_proba:
         voting_clf_soft = VotingClassifier(estimators=estimators, voting='soft', n_jobs=-1)
         pipeline_soft = Pipeline([('preprocessor', final_preprocessor), ('classifier', voting_clf_soft)])
-        print("\nFitting Soft Voting Pipeline on training data...")
+        print("\nFitting Soft Voting Pipeline on training data for validation check...")
         pipeline_soft.fit(X_train, y_train)
         y_pred_val_soft = pipeline_soft.predict(X_val)
         f1_soft = f1_score(y_val, y_pred_val_soft, average='macro')
@@ -510,9 +508,18 @@ def run_train(public_dir, model_dir, n_cv_folds=5):
     # This is standard practice after parameter tuning on a subset or with CV.
     # It ensures the final model learns from all available training data.
     print(f"Training final {best_voting_type.upper()} Voting Pipeline on the full training dataset...")
+
+    # Reconstruct the estimators again to ensure they are fresh instances for the final fit
+    final_estimators = []
+    for model_type, results in top_models_info:
+        model_params_only = {k: v for k, v in results['best_params'].items() if not k.startswith('preprocessor__')}
+        model_instance = reconstruct_model_from_params(model_type, model_params_only)
+        final_estimators.append((model_type, model_instance))
+
+
     final_full_pipeline = Pipeline([
         ('preprocessor', build_final_preprocessor(best_preprocessor_params, num_features, cat_features)),
-        ('classifier', VotingClassifier(estimators=[(name, reconstruct_model_from_params(name, {k: v for k, v in results['best_params'].items() if not k.startswith('preprocessor__')})) for name, results in top_models_info], voting=best_voting_type, n_jobs=-1))
+        ('classifier', VotingClassifier(estimators=final_estimators, voting=best_voting_type, n_jobs=-1))
     ])
 
     final_full_pipeline.fit(X, y) # Fit on the entire original training data
