@@ -83,7 +83,7 @@ def run_train(public_dir, model_dir):
     X = df.drop('two_year_recid', axis=1)
     y = df['two_year_recid']
 
-    #X = engineer_features(X)
+    X = engineer_features(X)
 
     # Identify categorical and numerical columns
     cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -143,7 +143,7 @@ def run_predict(model_dir, test_input_dir, output_path):
     test_path = os.path.join(test_input_dir, 'test.json')
     df_test = pd.read_json(test_path, lines=True)
 
-    #df_test = engineer_features(df_test)
+    df_test = engineer_features(df_test)
 
     # Transform and predict
     X_test = preprocessor.transform(df_test)
