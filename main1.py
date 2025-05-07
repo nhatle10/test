@@ -352,16 +352,16 @@ def main():
     # Train command
     parser_train = subparsers.add_parser('train', help='Tune models using Grid Search, create best voting ensemble, save preprocessor and model')
     # --- Changed defaults to relative subdirectories ---
-    parser_train.add_argument('--public_dir', type=str, default='./data', help='Directory containing train_data/train.json (default: ./data)')
-    parser_train.add_argument('--model_dir', type=str, default ='./models', help='Directory to save the trained model pipeline (default: ./models)')
+    parser_train.add_argument('--public_dir', type=str, default='./', help='Directory containing train_data/train.json (default: ./data)')
+    parser_train.add_argument('--model_dir', type=str, default ='./', help='Directory to save the trained model pipeline (default: ./models)')
     parser_train.add_argument('--n_cv_folds', type=int, default=5, help='Number of CV folds for Grid Search (default: 5)')
 
     # Predict command
     parser_predict = subparsers.add_parser('predict', help='Make predictions using saved pipeline')
     # --- Changed defaults to relative subdirectories ---
-    parser_predict.add_argument('--model_dir', type=str, default='./models', help='Directory containing the trained model pipeline (default: ./models)')
-    parser_predict.add_argument('--test_input_dir', type=str, default='./data/test', help='Directory containing test.json (default: ./data/test)') # Assuming test data is in a subdirectory
-    parser_predict.add_argument('--output_path', type=str, default='./output/predict.json', help='File path for saving predictions (default: ./output/predict.json)')
+    parser_predict.add_argument('--model_dir', type=str, default='./', help='Directory containing the trained model pipeline (default: ./models)')
+    parser_predict.add_argument('--test_input_dir', type=str, default='./test_data', help='Directory containing test.json (default: ./data/test)') # Assuming test data is in a subdirectory
+    parser_predict.add_argument('--output_path', type=str, default='./predict.json', help='File path for saving predictions (default: ./output/predict.json)')
 
     args = parser.parse_args()
 
