@@ -368,7 +368,7 @@ def run_train(public_dir, model_dir, n_cv_folds=5):
 
     supported_models = [
         'knn', 'logistic', 'svc', 'decision_tree', 'random_forest',
-        'gradient_boosting', 'gaussian_nb', 'mlp',
+        #'gradient_boosting', 'gaussian_nb', 'mlp',
         'xgboost', 'lightgbm', 'catboost', 'adaboost'
     ]
     all_model_results = {}
