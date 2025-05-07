@@ -49,6 +49,8 @@ def engineer_features(df):
         'juv_fel_count', 'juv_misd_count', 'juv_other_count'
     ]].fillna(0)
 
+    df['priors_count'] = df['priors_count'].fillna(0)
+
     # Age category
     df['age_cat'] = df['age'].apply(categorize_age)
     df.drop(columns=['age'], inplace=True)
