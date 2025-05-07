@@ -115,6 +115,7 @@ def run_train(public_dir, model_dir):
         'max_features': [None, 'sqrt', 'log2'],
         'max_leaf_nodes': [None, 10, 20, 50],
         'min_weight_fraction_leaf': [0.0, 0.01, 0.05],
+        'class_weight': [None, 'balanced']
     }
 
     base_model = DecisionTreeClassifier(random_state=42)
