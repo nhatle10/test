@@ -12,6 +12,27 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
 from joblib import dump, load
 
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier, AdaBoostClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
+import xgboost as xgb
+import lightgbm as lgb
+from catboost import CatBoostClassifier
+
+
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, MinMaxScaler, RobustScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split, GridSearchCV, StratifiedKFold
+from sklearn.metrics import accuracy_score, classification_report, f1_score, make_scorer
+from joblib import dump, load
+from tqdm import tqdm
+
 
 def run_train(public_dir, model_dir):
     os.makedirs(model_dir, exist_ok=True)
@@ -31,7 +52,11 @@ def run_train(public_dir, model_dir):
     # Preprocessing pipeline
     preprocessor = ColumnTransformer(
         transformers=[
-            ('num', SimpleImputer(strategy='mean'), num_features),
+            ('num', Pipeline([
+                ('imputer', SimpleImputer(strategy='mean')),
+                ('scaler', StandardScaler())
+        ]),  num_features),
+
             ('cat', Pipeline([
                 ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
                 ('imputer', SimpleImputer(strategy='most_frequent'))
