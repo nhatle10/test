@@ -72,7 +72,7 @@ def engineer_features(df):
     return df
 
 
-def run_train(public_dir, model_dir):
+def run_train(public_dir, model_dir, model_name='decision_tree'):
     os.makedirs(model_dir, exist_ok=True)
 
     # Load training data
@@ -83,7 +83,7 @@ def run_train(public_dir, model_dir):
     X = df.drop('two_year_recid', axis=1)
     y = df['two_year_recid']
 
-    X = engineer_features(X)
+    #X = engineer_features(X)
 
     # Identify categorical and numerical columns
     cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -95,7 +95,7 @@ def run_train(public_dir, model_dir):
             ('num', Pipeline([
                 ('imputer', SimpleImputer(strategy='mean')),
                 ('scaler', StandardScaler())
-        ]),  num_features),
+            ]), num_features),
 
             ('cat', Pipeline([
                 ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
@@ -107,21 +107,35 @@ def run_train(public_dir, model_dir):
     # Fit preprocessing
     X_processed = preprocessor.fit_transform(X)
 
-    # Extended param grid for DecisionTreeClassifier
-    param_grid = {
-        'criterion': ['gini', 'entropy', 'log_loss'],
-        'splitter': ['best', 'random'],
-        'max_depth': [None, 5, 10, 20, 30],
-        'min_samples_split': [2, 5, 10, 20],
-        'min_samples_leaf': [1, 2, 4, 6],
-        'max_features': [None, 'sqrt', 'log2'],
-        'max_leaf_nodes': [None, 10, 20, 50],
-        'min_weight_fraction_leaf': [0.0, 0.01, 0.05],
-        'class_weight': [None, 'balanced']
-    }
+    # MODEL SELECTION
+    if model_name == 'decision_tree':
+        base_model = DecisionTreeClassifier(random_state=42)
+        param_grid = {
+            'criterion': ['gini', 'entropy', 'log_loss'],
+            'splitter': ['best', 'random'],
+            'max_depth': [None, 5, 10, 20, 30],
+            'min_samples_split': [2, 5, 10, 20],
+            'min_samples_leaf': [1, 2, 4, 6],
+            'max_features': [None, 'sqrt', 'log2'],
+            'max_leaf_nodes': [None, 10, 20, 50],
+            'min_weight_fraction_leaf': [0.0, 0.01, 0.05],
+            'class_weight': [None, 'balanced']
+        }
+    elif model_name == 'catboost':
+        base_model = CatBoostClassifier(verbose=0, random_state=42)
+        param_grid = {
+            'iterations': [100, 200],
+            'depth': [4, 6, 8],
+            'learning_rate': [0.01, 0.1, 0.2],
+            'l2_leaf_reg': [1, 3, 5],
+            'border_count': [32, 64],
+            'scale_pos_weight': [1, 2]
+        }
+    else:
+        raise ValueError(f"Unsupported model: {model_name}")
 
-    base_model = DecisionTreeClassifier(random_state=42)
-    grid_search = GridSearchCV(base_model, param_grid, cv=5, scoring='f1_macro', n_jobs=-1)
+    # Grid search
+    grid_search = GridSearchCV(base_model, param_grid, cv=5, scoring='f1_weighted', n_jobs=-1)
     grid_search.fit(X_processed, y)
 
     best_model = grid_search.best_estimator_
@@ -143,7 +157,7 @@ def run_predict(model_dir, test_input_dir, output_path):
     test_path = os.path.join(test_input_dir, 'test.json')
     df_test = pd.read_json(test_path, lines=True)
 
-    df_test = engineer_features(df_test)
+    #df_test = engineer_features(df_test)
 
     # Transform and predict
     X_test = preprocessor.transform(df_test)
@@ -161,7 +175,7 @@ def main():
     parser_train = subparsers.add_parser('train', help='Tune models using Grid Search, create best voting ensemble, save preprocessor and model')
     parser_train.add_argument('--public_dir', type=str, default='./', help='Directory containing train_data/train.json')
     parser_train.add_argument('--model_dir', type=str, default ='./', help='Directory to save preprocessor.joblib and trained_voting_model.joblib')
-    #parser_train.add_argument('--model_name', type=str, default='decision_tree', choices=['decision_tree', 'catboost'], help='Model to train: decision_tree or catboost')
+    parser_train.add_argument('--model_name', type=str, default='decision_tree', choices=['decision_tree', 'catboost'], help='Model to train: decision_tree or catboost')
 
     # Predict command
     parser_predict = subparsers.add_parser('predict', help='Make predictions using saved preprocessor and voting model')
@@ -172,7 +186,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'train':
-        run_train(args.public_dir, args.model_dir)
+        run_train(args.public_dir, args.model_dir, model_name=args.model_name)
     elif args.command == 'predict':
         run_predict(args.model_dir, args.test_input_dir, args.output_path)
     else:
