@@ -6,14 +6,14 @@ import numpy as np
 # --- Import Models ---
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC # Often slow, may need to reduce search space or skip
+from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier
-from sklearn.naive_bayes import GaussianNB # Fewer parameters to tune
-from sklearn.neural_network import MLPClassifier # Can be complex to tune
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
 import xgboost as xgb
 import lightgbm as lgb
-# from catboost import CatBoostClassifier # Uncomment if you have catboost installed and want to use it
+# from catboost import CatBoostClassifier # Uncomment if you have catboost installed
 
 # --- Import Preprocessing & Pipeline ---
 from sklearn.impute import SimpleImputer
@@ -21,12 +21,11 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import roc_auc_score, make_scorer # Using ROC AUC as score
+from sklearn.metrics import roc_auc_score, make_scorer
 from joblib import dump, load
 import time
 
 # Define ROC AUC scorer
-# Use roc_auc_score for binary classification prediction evaluation
 roc_auc = make_scorer(roc_auc_score)
 
 def run_train(public_dir, model_dir):
@@ -150,7 +149,6 @@ def run_train(public_dir, model_dir):
              'classifier__subsample': [0.8, 1.0], # Subsample of the training instances
              'classifier__max_features': ['sqrt', None],
         },
-
         # 6. AdaBoost Classifier
         {
              'classifier': [AdaBoostClassifier(random_state=42)],
@@ -242,7 +240,17 @@ def run_train(public_dir, model_dir):
     # scoring='roc_auc' uses the ROC AUC score to evaluate models
     # n_jobs=-1 uses all available CPU cores (set to a smaller number if needed, e.g., 4)
     print("Starting Grid Search with expanded parameter grid...")
-    print(f"Total number of candidate configurations: {sum(len(list(d.values())[0]) * np.prod([len(v) for k, v in d.items() if k != 'classifier']) for d in param_grid)}")
+    # Calculate total number of candidates (this might be large!)
+    total_candidates = 0
+    for d in param_grid:
+        # For each dict, get the list of classifiers (the first item)
+        classifiers_list = list(d.values())[0]
+        # Count other parameter combinations
+        other_params = {k: v for k, v in d.items() if k != 'classifier'}
+        num_other_combinations = np.prod([len(v) for v in other_params.values()]) if other_params else 1
+        total_candidates += len(classifiers_list) * num_other_combinations
+
+    print(f"Total number of candidate configurations: {total_candidates}")
     grid_search = GridSearchCV(pipeline, param_grid, cv=5, scoring=roc_auc, n_jobs=-1, verbose=3) # Increased verbose for more output
 
     start_time = time.time()
@@ -345,27 +353,38 @@ def main():
     parser_predict = subparsers.add_parser('predict', help='Make predictions using a trained model')
     parser_predict.add_argument('--model_dir', type=str, required=True, help='Directory containing the trained model pipeline')
     parser_predict.add_argument('--test_input_dir', type=str, required=True, help='Directory containing the test input data. Expects data at test_input_dir/test.json')
-    parser_predict.add_path_argument('--output_path', type=str, required=True, help='File path to save the predictions (JSON format)') # Changed to add_path_argument if available, otherwise keep add_argument
+    # --- CORRECTED LINE BELOW ---
+    parser_predict.add_argument('--output_path', type=str, required=True, help='File path to save the predictions (JSON format)')
 
     args = parser.parse_args()
 
-    # Basic validation for paths
-    if args.command == 'train' or args.command == 'predict':
-         if not os.path.exists(os.path.dirname(args.model_dir) if os.path.isfile(args.model_dir) else args.model_dir):
-              print(f"Error: Model directory path component does not exist: {os.path.dirname(args.model_dir) if os.path.isfile(args.model_dir) else args.model_dir}")
-              sys.exit(1)
-
+    # --- Path Validation and Directory Creation (after parsing args) ---
     if args.command == 'train':
+        # Check if model_dir parent exists or can be created
+        if args.model_dir: # Check if argument was provided (should be true due to required=True, but defensive)
+             model_dir_parent = os.path.dirname(args.model_dir)
+             if model_dir_parent and not os.path.exists(model_dir_parent):
+                  try:
+                      os.makedirs(model_dir_parent, exist_ok=True)
+                      print(f"Created directory: {model_dir_parent}")
+                  except OSError as e:
+                      print(f"Error creating model directory parent {model_dir_parent}: {e}")
+                      sys.exit(1)
+
         run_train(args.public_dir, args.model_dir)
+
     elif args.command == 'predict':
+         # Check if test_input_dir exists
          if not os.path.exists(args.test_input_dir):
               print(f"Error: Test input directory not found: {args.test_input_dir}")
               sys.exit(1)
-         # Check if output directory exists
+
+         # Check if output directory exists and create it if necessary
          output_dir = os.path.dirname(args.output_path)
          if output_dir and not os.path.exists(output_dir):
              try:
                  os.makedirs(output_dir, exist_ok=True)
+                 print(f"Created output directory: {output_dir}")
              except OSError as e:
                  print(f"Error creating output directory {output_dir}: {e}")
                  sys.exit(1)
@@ -375,11 +394,7 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-# Helper to add path argument, robust to creating parent dirs for output_path
-def add_path_argument(parser, *args, **kwargs):
-    # This is a simple wrapper, might need more sophisticated path validation
-    parser.add_argument(*args, **kwargs)
-
+# Removed the unnecessary add_path_argument helper function definition
 
 if __name__ == "__main__":
     main()
