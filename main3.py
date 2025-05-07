@@ -121,7 +121,7 @@ def run_train(public_dir, model_dir):
     }
 
     base_model = DecisionTreeClassifier(random_state=42)
-    grid_search = GridSearchCV(base_model, param_grid, cv=5, scoring='f1', n_jobs=-1)
+    grid_search = GridSearchCV(base_model, param_grid, cv=5, scoring='f1_macro', n_jobs=-1)
     grid_search.fit(X_processed, y)
 
     best_model = grid_search.best_estimator_
