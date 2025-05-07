@@ -90,15 +90,15 @@ def main():
     subparsers = parser.add_subparsers(dest='command')
 
     # Train command
-    parser_train = subparsers.add_parser('train')
-    parser_train.add_argument('--public_dir', type=str)
-    parser_train.add_argument('--model_dir', type=str)
+    parser_train = subparsers.add_parser('train', help='Tune models using Grid Search, create best voting ensemble, save preprocessor and model')
+    parser_train.add_argument('--public_dir', type=str, default='./', help='Directory containing train_data/train.json')
+    parser_train.add_argument('--model_dir', type=str, default ='./', help='Directory to save preprocessor.joblib and trained_voting_model.joblib')
 
     # Predict command
-    parser_predict = subparsers.add_parser('predict')
-    parser_predict.add_argument('--model_dir', type=str)
-    parser_predict.add_argument('--test_input_dir', type=str)
-    parser_predict.add_argument('--output_path', type=str)
+    parser_predict = subparsers.add_parser('predict', help='Make predictions using saved preprocessor and voting model')
+    parser_predict.add_argument('--model_dir', type=str, default='./', help='Directory containing preprocessor.joblib and trained_..._voting_model.joblib')
+    parser_predict.add_argument('--test_input_dir', type=str, default='./test_data', help='Directory containing test.json')
+    parser_predict.add_argument('--output_path', type=str, default='./predict.json', help='File path for saving predictions')
 
     args = parser.parse_args()
 
