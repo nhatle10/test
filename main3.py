@@ -124,7 +124,7 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
     elif model_name == 'catboost':
         base_model = CatBoostClassifier(verbose=0, random_state=42)
         param_grid = {
-            'iterations': [100, 200, 300],
+            'iterations': [100, 200],
             'depth': [4, 6, 8],
             'learning_rate': [0.01, 0.05, 0.1, 0.2, 0.3],
             'l2_leaf_reg': [1, 3, 5, 7, 9],
@@ -133,6 +133,27 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
             'bagging_temperature': [0, 0.5, 1, 2],
             'random_strength': [1, 5, 10],
             'rsm': [0.8, 1.0]  # Random subspace method (column sampling)
+        }
+    elif model_name == 'random_forest':
+        base_model = RandomForestClassifier(random_state=42)
+        param_grid = {
+            'n_estimators': [100, 200, 300],
+            'max_depth': [None, 10, 20, 30],
+            'min_samples_split': [2, 5, 10],
+            'min_samples_leaf': [1, 2, 4],
+            'max_features': ['sqrt', 'log2', None],
+            'bootstrap': [True, False],
+            'class_weight': [None, 'balanced']
+        }
+    elif model_name == 'adaboost':
+        base_tree = DecisionTreeClassifier(max_depth=1, class_weight='balanced')
+        base_model = AdaBoostClassifier(base_estimator=base_tree, random_state=42)
+
+        param_grid = {
+            'n_estimators': [50, 100, 200],
+            'learning_rate': [0.01, 0.1, 0.5, 1.0],
+            'base_estimator__max_depth': [1, 2, 3],
+            'base_estimator__class_weight': [None, 'balanced']
         }
     else:
         raise ValueError(f"Unsupported model: {model_name}")
@@ -178,7 +199,7 @@ def main():
     parser_train = subparsers.add_parser('train', help='Tune models using Grid Search, create best voting ensemble, save preprocessor and model')
     parser_train.add_argument('--public_dir', type=str, default='./', help='Directory containing train_data/train.json')
     parser_train.add_argument('--model_dir', type=str, default ='./', help='Directory to save preprocessor.joblib and trained_voting_model.joblib')
-    parser_train.add_argument('--model_name', type=str, default='decision_tree', choices=['decision_tree', 'catboost'], help='Model to train: decision_tree or catboost')
+    parser_train.add_argument('--model_name', type=str, default='decision_tree', choices=['decision_tree', 'catboost', 'ramdom_forest', 'adaboost'], help='Model to train')
 
     # Predict command
     parser_predict = subparsers.add_parser('predict', help='Make predictions using saved preprocessor and voting model')
