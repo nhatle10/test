@@ -199,7 +199,7 @@ def main():
     parser_train = subparsers.add_parser('train', help='Tune models using Grid Search, create best voting ensemble, save preprocessor and model')
     parser_train.add_argument('--public_dir', type=str, default='./', help='Directory containing train_data/train.json')
     parser_train.add_argument('--model_dir', type=str, default ='./', help='Directory to save preprocessor.joblib and trained_voting_model.joblib')
-    parser_train.add_argument('--model_name', type=str, default='decision_tree', choices=['decision_tree', 'catboost', 'ramdom_forest', 'adaboost'], help='Model to train')
+    parser_train.add_argument('--model_name', type=str, default='decision_tree', choices=['decision_tree', 'catboost', 'random_forest', 'adaboost'], help='Model to train')
 
     # Predict command
     parser_predict = subparsers.add_parser('predict', help='Make predictions using saved preprocessor and voting model')
