@@ -44,28 +44,29 @@ def categorize_age(age):
         return 'Greater than 45'
 
 def engineer_features(df):
+    df.replace({None: np.nan}, inplace=True)
     # Điền giá trị NaN bằng 0 cho các cột vi phạm vị thành niên
-    df[['juv_fel_count', 'juv_misd_count', 'juv_other_count']] = df[[
-        'juv_fel_count', 'juv_misd_count', 'juv_other_count'
-    ]].fillna(0)
+    # df[['juv_fel_count', 'juv_misd_count', 'juv_other_count']] = df[[
+    #     'juv_fel_count', 'juv_misd_count', 'juv_other_count'
+    # ]].fillna(0)
 
-    df['priors_count'] = df['priors_count'].fillna(0)
+    # df['priors_count'] = df['priors_count'].fillna(0)
 
-    # Age category
-    df['age_cat'] = df['age'].apply(categorize_age)
-    df.drop(columns=['age'], inplace=True)
+    # # Age category
+    # df['age_cat'] = df['age'].apply(categorize_age)
+    # df.drop(columns=['age'], inplace=True)
 
-    # Tổng số vi phạm vị thành niên
-    df['juv_total_count'] = df['juv_fel_count'] + df['juv_misd_count'] + df['juv_other_count']
+    # # Tổng số vi phạm vị thành niên
+    # df['juv_total_count'] = df['juv_fel_count'] + df['juv_misd_count'] + df['juv_other_count']
 
-    # Có từng phạm pháp khi vị thành niên không?
-    df['is_juvenile_offender'] = (df['juv_total_count'] > 0).astype(int)
+    # # Có từng phạm pháp khi vị thành niên không?
+    # df['is_juvenile_offender'] = (df['juv_total_count'] > 0).astype(int)
 
-    # Đã từng phạm pháp trước đó?
-    df['is_repeat_offender'] = (df['priors_count'] > 0).astype(int)
+    # # Đã từng phạm pháp trước đó?
+    # df['is_repeat_offender'] = (df['priors_count'] > 0).astype(int)
 
-    # Có phạm tội nghiêm trọng không?
-    df['is_felony'] = (df['c_charge_degree'] == 'F').astype(int)
+    # # Có phạm tội nghiêm trọng không?
+    # df['is_felony'] = (df['c_charge_degree'] == 'F').astype(int)
 
     #df.drop(columns=['juv_fel_count', 'juv_misd_count', 'juv_other_count'], inplace=True)
 
@@ -83,7 +84,7 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
     X = df.drop('two_year_recid', axis=1)
     y = df['two_year_recid']
 
-    #X = engineer_features(X)
+    X = engineer_features(X)
 
     # Identify categorical and numerical columns
     cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -181,7 +182,7 @@ def run_predict(model_dir, test_input_dir, output_path):
     test_path = os.path.join(test_input_dir, 'test.json')
     df_test = pd.read_json(test_path, lines=True)
 
-    #df_test = engineer_features(df_test)
+    df_test = engineer_features(df_test)
 
     # Transform and predict
     X_test = preprocessor.transform(df_test)
