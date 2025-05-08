@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.impute import SimpleImputer
+from sklearn.impute import SimpleImputer, KNNImputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -91,18 +91,32 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
     num_features = X.select_dtypes(include=[np.number]).columns.tolist()
 
     # Preprocessing pipeline
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', Pipeline([
-                ('imputer', SimpleImputer(strategy='mean')),
-                ('scaler', StandardScaler())
-            ]), num_features),
+    # preprocessor = ColumnTransformer(
+    #     transformers=[
+    #         ('num', Pipeline([
+    #             ('imputer', SimpleImputer(strategy='mean')),
+    #             ('scaler', StandardScaler())
+    #         ]), num_features),
 
-            ('cat', Pipeline([
-                ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
-                ('imputer', SimpleImputer(strategy='most_frequent'))
-            ]), cat_features)
-        ]
+    #         ('cat', Pipeline([
+    #             ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
+    #             ('imputer', SimpleImputer(strategy='most_frequent'))
+    #         ]), cat_features)
+    #     ]
+    # )
+
+    preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', Pipeline([
+            ('imputer', KNNImputer(n_neighbors=5)),  # Thay bằng KNNImputer
+            ('scaler', StandardScaler())
+        ]), num_features),
+
+        ('cat', Pipeline([
+            ('imputer', SimpleImputer(strategy='most_frequent')),
+            ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
+        ]), cat_features)
+    ]
     )
 
     # Fit preprocessing
