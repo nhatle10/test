@@ -186,7 +186,7 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
     preprocessor = ColumnTransformer(
         transformers=[
             ('num', Pipeline([
-                ('imputer', SimpleImputer(strategy='mean')),
+                ('imputer', SimpleImputer(strategy='median')),
                 ('scaler', StandardScaler())
             ]), num_features),
 
