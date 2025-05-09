@@ -60,56 +60,56 @@ class NormalizeColumnByLabel(BaseEstimator, TransformerMixin):
             )
         return C
     
-from sklearn.base import BaseEstimator, TransformerMixin
-from aif360.algorithms.preprocessing.lfr import LFR
-from aif360.datasets import BinaryLabelDataset
-import pandas as pd
+# from sklearn.base import BaseEstimator, TransformerMixin
+# from aif360.algorithms.preprocessing.lfr import LFR
+# from aif360.datasets import BinaryLabelDataset
+# import pandas as pd
 
-class LFRCustom(BaseEstimator, TransformerMixin):
-    def __init__(self, col, protected_col, unprivileged_groups, privileged_groups):
-        self.col = col
-        self.protected_col = protected_col
-        self.unprivileged_groups = unprivileged_groups
-        self.privileged_groups = privileged_groups
-        self.TR = None
+# class LFRCustom(BaseEstimator, TransformerMixin):
+#     def __init__(self, col, protected_col, unprivileged_groups, privileged_groups):
+#         self.col = col
+#         self.protected_col = protected_col
+#         self.unprivileged_groups = unprivileged_groups
+#         self.privileged_groups = privileged_groups
+#         self.TR = None
 
-    def fit(self, X, y=None):
-        d = pd.DataFrame(X, columns=self.col)
-        d['response'] = list(y)
+#     def fit(self, X, y=None):
+#         d = pd.DataFrame(X, columns=self.col)
+#         d['response'] = list(y)
 
-        binary_df = BinaryLabelDataset(
-            df=d,
-            protected_attribute_names=self.protected_col,
-            label_names=['response']
-        )
+#         binary_df = BinaryLabelDataset(
+#             df=d,
+#             protected_attribute_names=self.protected_col,
+#             label_names=['response']
+#         )
 
-        self.TR = LFR(
-            unprivileged_groups=self.unprivileged_groups,
-            privileged_groups=self.privileged_groups,
-            seed=0,
-            k=2,
-            Ax=0.5, Ay=0.2, Az=0.2,
-            verbose=0
-        )
-        self.TR.fit(binary_df, maxiter=5000, maxfun=5000)
-        return self
+#         self.TR = LFR(
+#             unprivileged_groups=self.unprivileged_groups,
+#             privileged_groups=self.privileged_groups,
+#             seed=0,
+#             k=2,
+#             Ax=0.5, Ay=0.2, Az=0.2,
+#             verbose=0
+#         )
+#         self.TR.fit(binary_df, maxiter=5000, maxfun=5000)
+#         return self
 
-    def transform(self, X, y=None):
-        d = pd.DataFrame(X, columns=self.col)
-        if y is not None:
-            d['response'] = list(y)
-        else:
-            d['response'] = False
+#     def transform(self, X, y=None):
+#         d = pd.DataFrame(X, columns=self.col)
+#         if y is not None:
+#             d['response'] = list(y)
+#         else:
+#             d['response'] = False
 
-        binary_df = BinaryLabelDataset(
-            df=d,
-            protected_attribute_names=self.protected_col,
-            label_names=['response']
-        )
+#         binary_df = BinaryLabelDataset(
+#             df=d,
+#             protected_attribute_names=self.protected_col,
+#             label_names=['response']
+#         )
 
-        transformed = self.TR.transform(binary_df)
-        df_transformed = transformed.convert_to_dataframe()[0].drop(['response'], axis=1)
-        return df_transformed.values
+#         transformed = self.TR.transform(binary_df)
+#         df_transformed = transformed.convert_to_dataframe()[0].drop(['response'], axis=1)
+#         return df_transformed.values
 
 
 
