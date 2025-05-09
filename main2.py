@@ -169,7 +169,7 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
     train_path = os.path.join(public_dir, 'train_data', 'train.json')
     df = pd.read_json(train_path, lines=True)
 
-    df = engineer_features(df)
+    #df = engineer_features(df)
 
     # Split features and label
     X = df.drop('two_year_recid', axis=1)
@@ -325,7 +325,7 @@ def run_predict(model_dir, test_input_dir, output_path):
     test_path = os.path.join(test_input_dir, 'test.json')
     df_test = pd.read_json(test_path, lines=True)
 
-    df_test = engineer_features(df_test)
+    #df_test = engineer_features(df_test)
 
     # Transform and predict
     X_test = preprocessor.transform(df_test)
