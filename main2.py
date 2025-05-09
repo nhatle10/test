@@ -239,17 +239,6 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
             'random_strength': [1, 5, 10],
             'rsm': [0.8, 1.0]  # Random subspace method (column sampling)
         }
-    # elif model_name == 'random_forest':
-    #     base_model = RandomForestClassifier(random_state=42)
-    #     param_grid = {
-    #         'n_estimators': [100, 200, 300],
-    #         'max_depth': [None, 10, 20, 30],
-    #         'min_samples_split': [2, 5, 10],
-    #         'min_samples_leaf': [1, 2, 4],
-    #         'max_features': ['sqrt', 'log2', None],
-    #         'bootstrap': [True, False],
-    #         'class_weight': [None, 'balanced']
-    #     }
     elif model_name == 'random_forest':
         base_model = RandomForestClassifier(random_state=42)
         param_grid = {
@@ -259,12 +248,23 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
             'min_samples_leaf': [1, 2, 4],
             'max_features': ['sqrt', 'log2', None],
             'bootstrap': [True, False],
-            'class_weight': [None, 'balanced'],
-            'criterion': ['gini', 'entropy', 'log_loss'],  # thêm tiêu chí phân tách
-            'max_leaf_nodes': [None, 20, 50, 100],         # giới hạn số lá
-            'min_weight_fraction_leaf': [0.0, 0.01, 0.02], # ngưỡng tối thiểu cho mỗi lá
-            'ccp_alpha': [0.0, 0.001, 0.01]                # pruning
+            'class_weight': [None, 'balanced']
         }
+    # elif model_name == 'random_forest':
+    #     base_model = RandomForestClassifier(random_state=42)
+    #     param_grid = {
+    #         'n_estimators': [100, 200, 300],
+    #         'max_depth': [None, 10, 20, 30],
+    #         'min_samples_split': [2, 5, 10],
+    #         'min_samples_leaf': [1, 2, 4],
+    #         'max_features': ['sqrt', 'log2', None],
+    #         'bootstrap': [True, False],
+    #         'class_weight': [None, 'balanced'],
+    #         'criterion': ['gini', 'entropy', 'log_loss'],  # thêm tiêu chí phân tách
+    #         'max_leaf_nodes': [None, 20, 50, 100],         # giới hạn số lá
+    #         'min_weight_fraction_leaf': [0.0, 0.01, 0.02], # ngưỡng tối thiểu cho mỗi lá
+    #         'ccp_alpha': [0.0, 0.001, 0.01]                # pruning
+    #     }
     elif model_name == 'adaboost':
         base_tree = DecisionTreeClassifier(max_depth=1, class_weight='balanced')
         base_model = AdaBoostClassifier(base_estimator=base_tree, random_state=42)
