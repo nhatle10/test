@@ -45,6 +45,9 @@ def categorize_age(age):
 
 def engineer_features(df):
     df.replace({None: np.nan}, inplace=True)
+
+    df.loc[df['race'].isin(['Native American', 'Asian']), 'race'] = 'Other'
+
     # Điền giá trị NaN bằng 0 cho các cột vi phạm vị thành niên
     df[['juv_fel_count', 'juv_misd_count', 'juv_other_count']] = df[[
         'juv_fel_count', 'juv_misd_count', 'juv_other_count'
@@ -52,23 +55,27 @@ def engineer_features(df):
 
     df['priors_count'] = df['priors_count'].fillna(0)
 
+    df['juv_count'] = df[["juv_fel_count", "juv_misd_count", "juv_other_count"]].sum(axis=1)
+
+    df = df.drop(["juv_fel_count", "juv_misd_count", "juv_other_count"], axis=1)
+
     # Age category
-    df['age_cat'] = df['age'].apply(categorize_age)
-    df.drop(columns=['age'], inplace=True)
+    # df['age_cat'] = df['age'].apply(categorize_age)
+    # df.drop(columns=['age'], inplace=True)
 
     # Tổng số vi phạm vị thành niên
-    df['juv_total_count'] = df['juv_fel_count'] + df['juv_misd_count'] + df['juv_other_count']
+    # df['juv_total_count'] = df['juv_fel_count'] + df['juv_misd_count'] + df['juv_other_count']
 
-    # Có từng phạm pháp khi vị thành niên không?
-    df['is_juvenile_offender'] = (df['juv_total_count'] > 0).astype(int)
+    # # Có từng phạm pháp khi vị thành niên không?
+    # df['is_juvenile_offender'] = (df['juv_total_count'] > 0).astype(int)
 
-    # Đã từng phạm pháp trước đó?
-    df['is_repeat_offender'] = (df['priors_count'] > 0).astype(int)
+    # # Đã từng phạm pháp trước đó?
+    # df['is_repeat_offender'] = (df['priors_count'] > 0).astype(int)
 
-    # Có phạm tội nghiêm trọng không?
-    df['is_felony'] = (df['c_charge_degree'] == 'F').astype(int)
+    # # Có phạm tội nghiêm trọng không?
+    # df['is_felony'] = (df['c_charge_degree'] == 'F').astype(int)
 
-    df.drop(columns=['c_charge_degree'], inplace=True)
+    # df.drop(columns=['c_charge_degree'], inplace=True)
 
     #df.drop(columns=['juv_fel_count', 'juv_misd_count', 'juv_other_count'], inplace=True)
 
