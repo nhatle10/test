@@ -291,7 +291,7 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
         raise ValueError(f"Unsupported model: {model_name}")
 
     # Grid search
-    grid_search = GridSearchCV(base_model, param_grid, cv=5, scoring='f1_macro', n_jobs=-1)
+    grid_search = GridSearchCV(base_model, param_grid, cv=5, scoring='f1_weighted', n_jobs=-1)
     grid_search.fit(X_processed, y)
 
     best_model = grid_search.best_estimator_
