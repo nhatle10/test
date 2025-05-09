@@ -169,11 +169,11 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
     train_path = os.path.join(public_dir, 'train_data', 'train.json')
     df = pd.read_json(train_path, lines=True)
 
+    df = engineer_features(df)
+
     # Split features and label
     X = df.drop('two_year_recid', axis=1)
     y = df['two_year_recid']
-
-    X = engineer_features(X)
 
     # Identify categorical and numerical columns
     cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
