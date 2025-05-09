@@ -183,22 +183,22 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
         num_features.remove('priors_count')
 
     # Add NormalizeColumnByLabel as a step in the full pipeline
-    full_pipeline = Pipeline([
-        ('normalize_priors', NormalizeColumnByLabel(col='priors_count', label='race')),
-        ('preprocessing', ColumnTransformer(
-            transformers=[
-                ('num', SimpleImputer(strategy='mean'), num_features),
-                ('cat', Pipeline([
-                    ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
-                    ('imputer', SimpleImputer(strategy='most_frequent'))
-                ]), cat_features)
-            ],
-            remainder='passthrough'  # Keeps normalized 'priors_count'
-        ))
-    ])
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', Pipeline([
+                ('imputer', SimpleImputer(strategy='mean')),
+                ('scaler', StandardScaler())
+            ]), num_features),
+
+            ('cat', Pipeline([
+                ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
+                ('imputer', SimpleImputer(strategy='most_frequent'))
+            ]), cat_features)
+        ]
+    )
 
     # Fit preprocessing
-    X_processed = full_pipeline.fit_transform(X)
+    X_processed = preprocessor.fit_transform(X)
 
     # MODEL SELECTION
     if model_name == 'decision_tree':
@@ -291,7 +291,7 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
 
     # Save model and preprocessor
     dump(best_model, os.path.join(model_dir, 'trained_model.joblib'))
-    dump(full_pipeline, os.path.join(model_dir, 'preprocessor.joblib'))
+    dump(preprocessor, os.path.join(model_dir, 'preprocessor.joblib'))
 
 
 def run_predict(model_dir, test_input_dir, output_path):
