@@ -46,15 +46,15 @@ def categorize_age(age):
 def engineer_features(df):
     df.replace({None: np.nan}, inplace=True)
     # Điền giá trị NaN bằng 0 cho các cột vi phạm vị thành niên
-    # df[['juv_fel_count', 'juv_misd_count', 'juv_other_count']] = df[[
-    #     'juv_fel_count', 'juv_misd_count', 'juv_other_count'
-    # ]].fillna(0)
+    df[['juv_fel_count', 'juv_misd_count', 'juv_other_count']] = df[[
+        'juv_fel_count', 'juv_misd_count', 'juv_other_count'
+    ]].fillna(0)
 
-    # df['priors_count'] = df['priors_count'].fillna(0)
+    df['priors_count'] = df['priors_count'].fillna(0)
 
-    # # Age category
-    # df['age_cat'] = df['age'].apply(categorize_age)
-    # df.drop(columns=['age'], inplace=True)
+    # Age category
+    df['age_cat'] = df['age'].apply(categorize_age)
+    df.drop(columns=['age'], inplace=True)
 
     # # Tổng số vi phạm vị thành niên
     # df['juv_total_count'] = df['juv_fel_count'] + df['juv_misd_count'] + df['juv_other_count']
@@ -84,40 +84,54 @@ def run_train(public_dir, model_dir, model_name='decision_tree'):
     X = df.drop('two_year_recid', axis=1)
     y = df['two_year_recid']
 
-    # X = engineer_features(X)
+    X = engineer_features(X)
 
     # Identify categorical and numerical columns
     cat_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
     num_features = X.select_dtypes(include=[np.number]).columns.tolist()
 
     # Preprocessing pipeline
-    # preprocessor = ColumnTransformer(
-    #     transformers=[
-    #         ('num', Pipeline([
-    #             ('imputer', SimpleImputer(strategy='mean')),
-    #             ('scaler', StandardScaler())
-    #         ]), num_features),
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', Pipeline([
+                ('imputer', SimpleImputer(strategy='mean')),
+                ('scaler', StandardScaler())
+            ]), num_features),
 
-    #         ('cat', Pipeline([
-    #             ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
-    #             ('imputer', SimpleImputer(strategy='most_frequent'))
-    #         ]), cat_features)
-    #     ]
+            ('cat', Pipeline([
+                ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False)),
+                ('imputer', SimpleImputer(strategy='most_frequent'))
+            ]), cat_features)
+        ]
+    )
+
+    # preprocessor = ColumnTransformer(
+    # transformers=[
+    #     ('num', Pipeline([
+    #         ('imputer', KNNImputer(n_neighbors=3)),  # Thay bằng KNNImputer
+    #         ('scaler', StandardScaler())
+    #     ]), num_features),
+
+    #     ('cat', Pipeline([
+    #         ('imputer', SimpleImputer(strategy='most_frequent')),
+    #         ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
+    #     ]), cat_features)
+    # ]
     # )
 
-    preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', Pipeline([
-            ('imputer', KNNImputer(n_neighbors=3)),  # Thay bằng KNNImputer
-            ('scaler', StandardScaler())
-        ]), num_features),
+    # preprocessor = ColumnTransformer(
+    # transformers=[
+    #     ('num', Pipeline([
+    #         ('imputer', SimpleImputer(strategy='median'))  # Thay bằng KNNImputer
+    #         ('scaler', StandardScaler())
+    #     ]), num_features),
 
-        ('cat', Pipeline([
-            ('imputer', SimpleImputer(strategy='most_frequent')),
-            ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
-        ]), cat_features)
-    ]
-    )
+    #     ('cat', Pipeline([
+    #         ('imputer', SimpleImputer(strategy='most_frequent')),
+    #         ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
+    #     ]), cat_features)
+    # ]
+    # )
 
     # Fit preprocessing
     X_processed = preprocessor.fit_transform(X)
@@ -208,7 +222,7 @@ def run_predict(model_dir, test_input_dir, output_path):
     test_path = os.path.join(test_input_dir, 'test.json')
     df_test = pd.read_json(test_path, lines=True)
 
-    # df_test = engineer_features(df_test)
+    df_test = engineer_features(df_test)
 
     # Transform and predict
     X_test = preprocessor.transform(df_test)
